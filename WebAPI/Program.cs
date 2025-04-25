@@ -4,7 +4,7 @@ using BLL.ServiceInterfaces;
 using BLL_EF.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Services.AddLogging();
 builder.Services.AddDbContext<PUKolContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 

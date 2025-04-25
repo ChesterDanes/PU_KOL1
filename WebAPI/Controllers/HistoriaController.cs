@@ -18,29 +18,14 @@ namespace PU_KOL1.WebAPI.Controllers
             _historiaService = historiaService;
         }
 
-        // GET: api/historia
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<HistoriaResponseDTO>>> GetAllHistoria(
-            [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10)
+        public async Task<ActionResult<IEnumerable<HistoriaResponseDTO>>> GetAllHistoria(int pageNumber = 1, int pageSize = 10)
         {
             var (historie, totalCount) = await _historiaService.GetAllHistoriaAsync(pageNumber, pageSize);
 
-            if (historie == null || historie.Count == 0)
-                return NotFound("Brak danych.");
+            Response.Headers.Add("X-Total-Count", totalCount.ToString());
 
-            var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
-
-            var response = new
-            {
-                TotalCount = totalCount,
-                TotalPages = totalPages,
-                PageNumber = pageNumber,
-                PageSize = pageSize,
-                Historie = historie
-            };
-
-            return Ok(response);
+            return Ok(historie);
         }
 
         // GET: api/historia/{id}

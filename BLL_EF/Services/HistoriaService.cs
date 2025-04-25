@@ -2,7 +2,9 @@
 using BLL.DTOModels.ResponseDTO;
 using BLL.ServiceInterfaces;
 using DAL;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Model;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,28 +20,57 @@ namespace BLL_EF.Services
         {
             _context = context;
         }
-
         public async Task<(List<HistoriaResponseDTO> historie, int totalCount)> GetAllHistoriaAsync(int pageNumber, int pageSize)
         {
-            var totalCount = await _context.Historie.CountAsync();
+            var historieDTO = new List<HistoriaResponseDTO>();
+            int totalCount = 0;
 
-            var historie = await _context.Historie
-                                          .Skip((pageNumber - 1) * pageSize)  
-                                          .Take(pageSize) 
-                                          .ToListAsync();
+            var connection = _context.Database.GetDbConnection();
 
-            var historieDTO = historie.Select(h => new HistoriaResponseDTO
+            try
             {
-                ID = h.ID,
-                Imie = h.Imie,
-                Nazwisko = h.Nazwisko,
-                GrupaID = h.GrupaID,
-                TypAkcji = h.TypAkcji,
-                Data = h.Data
-            }).ToList();
+                await connection.OpenAsync();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = "GetHistoriePaged";
+                command.CommandType = System.Data.CommandType.StoredProcedure;
+
+                var paramPageNumber = new SqlParameter("@PageNumber", System.Data.SqlDbType.Int) { Value = pageNumber };
+                var paramPageSize = new SqlParameter("@PageSize", System.Data.SqlDbType.Int) { Value = pageSize };
+
+                command.Parameters.Add(paramPageNumber);
+                command.Parameters.Add(paramPageSize);
+
+                using var reader = await command.ExecuteReaderAsync();
+
+                while (await reader.ReadAsync())
+                {
+                    historieDTO.Add(new HistoriaResponseDTO
+                    {
+                        ID = reader.GetInt32(0),
+                        Imie = reader.GetString(1),
+                        Nazwisko = reader.GetString(2),
+                        GrupaID = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                        TypAkcji = reader.GetString(4),
+                        Data = reader.GetDateTime(5)
+                    });
+                }
+
+                if (await reader.NextResultAsync() && await reader.ReadAsync())
+                {
+                    totalCount = reader.GetInt32(0);
+                }
+            }
+            finally
+            {
+                await connection.CloseAsync();
+            }
 
             return (historieDTO, totalCount);
         }
+
+
+
 
         public async Task<HistoriaResponseDTO> GetHistoriaByIdAsync(int id)
         {
